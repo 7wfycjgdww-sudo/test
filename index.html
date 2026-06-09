@@ -2,48 +2,199 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Animation Association</title>
-
+<title>Portée Musicale Interactive</title>
 <style>
-body{
-    margin:0;
-    display:flex;
-    justify-content:center;
-    align-items:center;
-    height:100vh;
-    background:#f5f7fa;
-    overflow:hidden;
-}
-
-.logo{
-    width:120px;
-    height:120px;
-    background:#2d7ff9;
-    border-radius:50%;
-    animation:pulse 2s infinite;
-}
-
-@keyframes pulse{
-    0%{
-        transform:scale(1);
-        box-shadow:0 0 0 0 rgba(45,127,249,0.6);
-    }
-
-    70%{
-        transform:scale(1.1);
-        box-shadow:0 0 0 30px rgba(45,127,249,0);
-    }
-
-    100%{
-        transform:scale(1);
-    }
-}
+  body { margin:0; background:#0f0f14; overflow:hidden; font-family:sans-serif; }
+  canvas { display:block; }
 </style>
 </head>
 <body>
+<canvas id="c"></canvas>
 
-<div class="logo"></div>
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
 
+let W, H, portrait;
+
+function resize(){
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+  portrait = H > W;
+}
+window.addEventListener('resize', resize);
+resize();
+
+// DATA
+const concerts = Array.from({length:12}, (_,i)=>({
+  date: new Date(2026, i, 10),
+  title: "Concert " + (i+1),
+  image: "https://picsum.photos/200/300?random="+i,
+  link: "#"
+}));
+
+// IMAGES
+const images = {};
+concerts.forEach(c=>{
+  const img = new Image();
+  img.src = c.image;
+  images[c.image] = img;
+});
+
+// NOTES
+const notes = concerts.map((c,i)=>({
+  basePos: i / (concerts.length-1),
+  pos: 0,
+  hover:0,
+  expanded:false,
+  ...c
+}));
+
+// SCROLL (IMPORTANT)
+let scrollY = 0;
+let targetScrollY = 0;
+
+window.addEventListener('wheel', e=>{
+  targetScrollY += e.deltaY * 0.001;
+});
+
+window.addEventListener('touchmove', e=>{
+  const t = e.touches[0];
+  targetScrollY -= e.movementY * 0.002 || 0;
+});
+
+// CLAMP
+function clamp(v,min,max){ return Math.max(min,Math.min(max,v)); }
+
+// CLICK
+canvas.addEventListener('click', (e)=>{
+  if(!portrait) return;
+
+  let clicked = null;
+
+  notes.forEach(n=>{
+    const y = n.pos * H;
+    if(Math.abs(e.clientY - y) < 40) clicked = n;
+  });
+
+  if(clicked){
+    clicked.expanded = !clicked.expanded;
+  }
+});
+
+function draw(){
+  ctx.clearRect(0,0,W,H);
+
+  // smooth scroll
+  scrollY += (targetScrollY - scrollY)*0.1;
+  scrollY = clamp(scrollY, 0, 1);
+
+  // background
+  const g = ctx.createLinearGradient(0,0,0,H);
+  g.addColorStop(0,'#1a1a2e');
+  g.addColorStop(1,'#0f0f14');
+  ctx.fillStyle = g;
+  ctx.fillRect(0,0,W,H);
+
+  if(portrait){
+    drawMobile();
+  } else {
+    drawDesktop();
+  }
+
+  requestAnimationFrame(draw);
+}
+
+// DESKTOP (simple)
+function drawDesktop(){
+  notes.forEach(n=>{
+    const x = n.basePos * W;
+    const y = H*0.5;
+
+    ctx.beginPath();
+    ctx.arc(x,y,8,0,Math.PI*2);
+    ctx.fillStyle="white";
+    ctx.fill();
+  });
+}
+
+// MOBILE = NOUVELLE UX
+function drawMobile(){
+
+  const sidebarX = W - 100;
+
+  // LINES
+  for(let i=0;i<5;i++){
+    ctx.beginPath();
+    for(let y=0;y<H;y++){
+      const x = sidebarX + Math.sin(y*0.01 + i)*10;
+      if(y===0) ctx.moveTo(x,y);
+      else ctx.lineTo(x,y);
+    }
+    ctx.strokeStyle = "rgba(255,255,255,0.15)";
+    ctx.stroke();
+  }
+
+  // FISHEYE basé sur scroll
+  notes.forEach(n=>{
+    const dist = n.basePos - scrollY;
+    const influence = Math.exp(-Math.abs(dist)*6);
+
+    n.pos = scrollY + dist * (1 + influence*2);
+  });
+
+  notes.forEach(n=>{
+    const y = n.pos * H;
+    const x = sidebarX;
+
+    const size = 6 + (1-Math.abs(n.basePos-scrollY))*10;
+
+    // NOTE
+    ctx.beginPath();
+    ctx.ellipse(x,y,size,size*0.7,0,0,Math.PI*2);
+    ctx.fillStyle="white";
+    ctx.fill();
+
+    // STEM
+    const stemX = x - size;
+    const stemH = 50;
+
+    ctx.beginPath();
+    ctx.moveTo(stemX,y);
+    ctx.lineTo(stemX - stemH, y);
+    ctx.stroke();
+
+    // IMAGE
+    const img = images[n.image];
+    if(img.complete){
+      const w = 40 + (1-Math.abs(n.basePos-scrollY))*80;
+      const h = w*1.4;
+
+      ctx.drawImage(img, stemX - stemH - w/2, y + 10, w, h);
+
+      // DETAILS (remplace popup)
+      if(n.expanded){
+        ctx.fillStyle="white";
+        ctx.font="12px sans-serif";
+        ctx.fillText(n.title, stemX - stemH - w/2, y + h + 25);
+        ctx.fillText(n.date.toDateString(), stemX - stemH - w/2, y + h + 40);
+      }
+    }
+  });
+}
+
+// reset expanded au scroll
+function resetExpanded(){
+  notes.forEach(n=> n.expanded=false);
+}
+
+window.addEventListener('wheel', resetExpanded);
+window.addEventListener('touchmove', resetExpanded);
+
+// INIT
+notes.forEach(n=> n.pos = n.basePos);
+
+draw();
+</script>
 </body>
 </html>
