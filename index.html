@@ -42,7 +42,6 @@ let W, H;
 function resize(){
   W = canvas.width = window.innerWidth;
   H = canvas.height = window.innerHeight;
-  portrait = H > W;
 }
 window.addEventListener('resize', resize);
 resize();
@@ -85,17 +84,11 @@ const notes = concerts.map((c,i)=>({
 }));
 
 let mouse = {x:-999,y:-999, active:false};
-let scrollY = 0;
-let targetScrollY = 0;
 
 canvas.addEventListener('mousemove',e=>{
   mouse.x = e.clientX;
   mouse.y = e.clientY;
   mouse.active = true;
-});
-window.addEventListener('touchmove', e=>{
-  const t = e.touches[0];
-  targetScrollY -= e.movementY * 0.002 || 0;
 });
 
 canvas.addEventListener('mouseleave',()=>{
