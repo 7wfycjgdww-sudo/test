@@ -1,216 +1,450 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-<meta charset="UTF-8">
-<title>Portée Musicale Interactive</title>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+<title>Événements à venir</title>
 <style>
-  body { margin:0; background:#0f0f14; overflow:hidden; font-family:sans-serif; }
-  canvas { display:block; }
-
-  #popup {
-    position:fixed;
-    top:50%; left:50%;
-    transform:translate(-50%,-50%) scale(0.9);
-    background:#111;
-    color:white;
-    padding:20px;
-    border-radius:12px;
-    opacity:0;
-    pointer-events:none;
-    transition:0.3s;
-    box-shadow:0 20px 60px rgba(0,0,0,0.6);
+  html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    background: #0f0f14;
+    overflow-x: hidden;
+    min-height: 320vh;
+    font-family: sans-serif;
+    touch-action: pan-y;
+    color: white;
   }
 
-  #popup.active {
-    opacity:1;
-    transform:translate(-50%,-50%) scale(1);
-    pointer-events:auto;
+  body {
+    padding-bottom: 190px;
   }
 
-  #popup img { width:200px; border-radius:8px; }
+  canvas {
+    position: fixed;
+    inset: 0;
+    display: block;
+    width: 100vw;
+    height: 100vh;
+    touch-action: pan-y;
+    z-index: 1;
+  }
+
+  #content {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 2;
+    padding: 16px 16px max(16px, env(safe-area-inset-bottom));
+    display: flex;
+    justify-content: center;
+    pointer-events: none;
+  }
+
+  #infoPanel {
+    width: min(100%, 760px);
+    background: rgba(17, 17, 24, 0.92);
+    border: 1px solid rgba(255,255,255,0.09);
+    backdrop-filter: blur(10px);
+    border-radius: 24px;
+    padding: 18px 20px;
+    box-shadow: 0 18px 60px rgba(0, 0, 0, 0.35);
+    pointer-events: auto;
+  }
+
+  #infoPanel .eyebrow {
+    margin: 0 0 8px;
+    font-size: 12px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    opacity: 0.65;
+  }
+
+  #infoTitle {
+    margin: 0 0 8px;
+    font-size: clamp(22px, 3vw, 34px);
+    line-height: 1.08;
+  }
+
+  #infoDate {
+    margin: 0 0 14px;
+    opacity: 0.8;
+  }
+
+  #infoDesc {
+    margin: 0 0 16px;
+    line-height: 1.55;
+    max-width: 64ch;
+  }
+
+  #infoLink {
+    display: inline-block;
+    color: #6cf;
+    text-decoration: none;
+    border: 1px solid rgba(102, 204, 255, 0.35);
+    padding: 10px 14px;
+    border-radius: 999px;
+  }
+
+  @media (max-width: 767px) {
+    body {
+      padding-bottom: 132px;
+    }
+
+    #content {
+      padding: 10px 10px max(10px, env(safe-area-inset-bottom));
+    }
+
+    #infoPanel {
+      width: 100%;
+      padding: 12px 14px;
+      border-radius: 18px;
+    }
+
+    #infoPanel .eyebrow {
+      margin-bottom: 6px;
+      font-size: 10px;
+    }
+
+    #infoTitle {
+      font-size: 18px;
+      margin-bottom: 4px;
+      line-height: 1.06;
+    }
+
+    #infoDate {
+      margin-bottom: 8px;
+      font-size: 13px;
+    }
+
+    #infoDesc {
+      display: none;
+    }
+
+    #infoLink {
+      padding: 8px 12px;
+      font-size: 13px;
+    }
+  }
 </style>
 </head>
 <body>
 <canvas id="c"></canvas>
-<div id="popup"></div>
+
+<main id="content">
+  <section id="infoPanel">
+    <p class="eyebrow">Flyer actif</p>
+    <h2 id="infoTitle"></h2>
+    <p id="infoDate"></p>
+    <p id="infoDesc"></p>
+    <a id="infoLink" href="#" target="_blank" rel="noopener noreferrer">Billetterie</a>
+  </section>
+</main>
 
 <script>
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
 
-let W, H;
-function resize(){
-  W = canvas.width = window.innerWidth;
-  H = canvas.height = window.innerHeight;
-}
-window.addEventListener('resize', resize);
-resize();
+// cadre de détails du concert sélectionné
+const infoTitle = document.getElementById('infoTitle');
+const infoDate = document.getElementById('infoDate');
+const infoDesc = document.getElementById('infoDesc');
+const infoLink = document.getElementById('infoLink');
 
-const concerts = Array.from({length:5}, (_,i)=>({
+const events = Array.from({ length: 5 }, (_, i) => ({
   date: new Date(2026, i, 10),
-  title: "Concert " + (i+1),
-  image: "https://picsum.photos/200/300?random="+i,
-  link: "#"
+  title: 'Concert ' + (i + 1),
+  flyer: 'https://picsum.photos/200/300?random=' + i,
+  link: '#',
+  description: [
+    'Un flyer suspendu, un moment à venir, et une musique qui prend forme dans l’espace.',
+    'Un concert imaginaire aux lignes souples, entre affichage graphique et partition vivante.',
+    'Une date qui glisse dans le temps comme une note qui s’étire avant de retomber.',
+    'Une affiche vivante, pensée comme un objet sonore autant que visuel.',
+    'Le dernier flyer de la série, posé comme une cadence finale.'
+  ][i]
 }));
 
-const images = {};
-concerts.forEach(c=>{
+const flyers = {};
+events.forEach(c => {
   const img = new Image();
-  img.src = c.image;
-  images[c.image] = img;
+  img.crossOrigin = 'anonymous';
+  img.src = c.flyer;
+  flyers[c.flyer] = img;
 });
-
-function mountain(x){
-  return H*0.35
-    + Math.sin(x*0.002)*120
-    + Math.sin(x*0.006)*60
-    + Math.sin(x*0.02)*20;
-}
-
-function getLine(x, i){
-  const flatten = i/4;
-  const base = mountain(x);
-  const flat = H*0.6 + Math.sin(x*0.002)*10;
-  return base*(1-flatten) + flat*flatten + i*20;
-}
-
-const notes = concerts.map((c,i)=>({
-  baseX: (i+1)*(W/(concerts.length+1)),
-  x:0,
-  yLevel: Math.floor(Math.random()*9)/2, // DANS LA PORTÉE
-  hover:0,
-  type: ["noire","croche","blanche"][Math.floor(Math.random()*3)],
+const notes = events.map((c, i) => ({
+  id: i,
+  time: 0,
+  pitch: Math.floor(Math.random() * 9),
+  // hover: 0,
+  type: ['noire', 'croche', 'blanche'][Math.floor(Math.random() * 3)],
+  // hitBox: null,
+  // flyerBox: null,
   ...c
 }));
 
-let mouse = {x:-999,y:-999, active:false};
+//////////////////////////////////////////////////////////////////////
+// Limite une valeur dans un intervalle.
+function clamp(v, min, max) {
+  return Math.max(min, Math.min(max, v));
+}
 
-canvas.addEventListener('mousemove',e=>{
-  mouse.x = e.clientX;
-  mouse.y = e.clientY;
+// Met à jour le panneau d'information du flyer actif.
+function syncInfoPanel(note) {
+  if (!note || note.id === lastInfoId) return;
+  lastInfoId = note.id;
+  infoTitle.textContent = note.title;
+  infoDate.textContent = note.date.toDateString();
+  infoDesc.textContent = note.description;
+  infoLink.href = note.link;
+}
+
+// les mouvements de la souris
+const mouse = { x: -9999, y: -9999, active: false };
+
+canvas.addEventListener('pointermove', (e) => {
+  if (mobileMode) return;
+  const rect = canvas.getBoundingClientRect();
+  mouse.x = e.clientX - rect.left;
+  mouse.y = e.clientY - rect.top;
   mouse.active = true;
 });
 
-canvas.addEventListener('mouseleave',()=>{
+canvas.addEventListener('pointerleave', () => {
   mouse.active = false;
 });
 
-canvas.addEventListener('click',()=>{
-  let clicked = notes.find(n=>n.hover>0.6);
-  if(clicked && mouse.y<700 && mouse.y>300) showPopup(clicked);
-  else hidePopup();
-});
-
-function showPopup(n){
-  const p = document.getElementById('popup');
-  p.innerHTML = `
-    <h2>${n.title}</h2>
-    <p>${n.date.toDateString()}</p>
-    <img src="${n.image}"/>
-    <br><br>
-    <a href="${n.link}" target="_blank" style="color:#6cf">Billetterie</a>
-  `;
-  p.classList.add('active');
+// les montagnes
+function mountain(x) {
+  const t = x / W;
+  const g = (c, w, h) => h * Math.exp(-0.5 * ((t - c) / w) ** 2);
+  return 150 + (-g(0.14, 0.07,  90) + g(0.24, 0.03,  18) - g(0.34, 0.05,  70) + g(0.48, 0.03,  45) - g(0.66, 0.06, 190) - g(0.76, 0.025, 80) + g(0.84, 0.03,  30) - g(0.93, 0.04, 100) );
 }
 
-function hidePopup(){
-  document.getElementById('popup').classList.remove('active');
+function getLine(x, i) {
+  const flatten = i / 8;
+  const base = mountain(x);
+  const flat = Math.sin(x * 0.002) * 10;
+  return base * (1 - flatten) + flat * flatten + i * 40;
+
 }
 
-function draw(){
-  ctx.clearRect(0,0,W,H);
+// la portée
+function drawStaff() {
+  let Xkey = 80;
+  let Ykey = offset + gain * getLine(Xkey, 2*3) - 70;
+  if (mobileMode) {
+    Ykey = 40;
+    Xkey = W - (offset + gain * getLine(Ykey, 2*3)) + 35
+  }
 
-  const g = ctx.createLinearGradient(0,0,0,H);
-  g.addColorStop(0,'#1a1a2e');
-  g.addColorStop(1,'#0f0f14');
-  ctx.fillStyle = g;
-  ctx.fillRect(0,0,W,H);
+  ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+  ctx.lineWidth = mobileMode ? 2 : 4;
 
-  // STAFF
-  for(let i=0;i<5;i++){
+  // la clé de sol
+  ctx.save();
+  ctx.translate(Xkey, Ykey);
+  if (mobileMode) ctx.rotate(Math.PI / 2);
+  ctx.fillStyle = 'rgba(255,255,255,0.26)';
+  if (mobileMode) {
+    ctx.font = `${Math.max(200, H * 0.2)}px "Times New Roman", serif`;
+  } else {
+    ctx.font = `${Math.max(500, H * 0.2)}px "Times New Roman", serif`; 
+  }
+  ctx.textBaseline = 'top';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('𝄞', 0, 0);
+  ctx.restore();
+
+  // les lignes
+  // ctx.lineCap = 'round';
+  for (let i = 0; i < 5; i++) {
     ctx.beginPath();
-    for(let x=0;x<W;x++){
-      const y = getLine(x,i);
-      if(x===0) ctx.moveTo(x,y);
-      else ctx.lineTo(x,y);
+    for (let t = 0; t < 1; t += 0.01) {
+      let T = mobileMode ? t*H : t*W
+      let p = offset + gain * getLine(T, 2*i);
+      let x = mobileMode ? (W-p) : T
+      let y = mobileMode ? T : p
+      if (T === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
     }
-    ctx.strokeStyle = "rgba(255,255,255,0.15)";
+    ctx.stroke();
+  }
+}
+
+// le flyer
+function drawFlyer(flyer, x, y, w, h) {
+  const ir = flyer.width / flyer.height;
+  const fr = w / h;
+
+  let sx = 0, sy = 0, sw = flyer.width, sh = flyer.height;
+  if (ir > fr) {
+    sw = flyer.height * fr;
+    sx = (flyer.width - sw) / 2;
+  } else {
+    sh = flyer.width / fr;
+    sy = (flyer.width - sh) / 2;
+  }
+
+  if (flyer.complete) {
+    ctx.drawImage(flyer, sx, sy, sw, sh, x, y, w, h);
+  } else {
+    ctx.fillStyle = '#222';
+    ctx.fillRect(x, y, w, h);
+  }
+}
+
+function drawNote(i, t, p, zoom) {
+  const flyer = flyers[notes[i].flyer]
+  const head_size = 25 + zoom * 10
+  const w = mobileMode ? head_size * 0.8 : head_size
+  const h = mobileMode ? head_size : head_size * 0.8
+  const stemUp = mobileMode ? false : (notes[i].pitch >= 4);
+  const stemH = 140 + zoom * 500;
+  const stemX = t + (stemUp ? (head_size-1) : (-head_size+1));
+
+  //la tête
+  ctx.beginPath();
+  ctx.ellipse(t, p, w, h, -0.3, 0, Math.PI * 2);
+  if (notes[i].type === 'blanche') {
+    ctx.strokeStyle = 'white';
+    ctx.lineWidth = 3;
+    ctx.stroke();
+  } else {
+    ctx.fillStyle = 'white';
+    ctx.fill();
+  }
+
+  // la hampe
+  ctx.beginPath();
+  ctx.moveTo(stemX, p);
+  ctx.lineTo(stemX, p + (stemUp ? -stemH : stemH));
+  ctx.strokeStyle = 'white';
+  ctx.lineWidth = 3;
+  ctx.lineCap = 'round';
+  ctx.stroke();
+  if (notes[i].type === 'croche') {
+    // ctx.beginPath();
+    // ctx.moveTo(stemX, p + (stemUp ? -stemH : stemH));
+    // ctx.quadraticCurveTo(stemX + 20, p, stemX + 5, p + (stemUp ? -stemH / 2 : stemH / 2));
+    // ctx.stroke();
+    const y0 = p + (stemUp ? -stemH : stemH);
+    const dir = stemUp ? 1 : -1;
+
+    ctx.beginPath();
+    ctx.moveTo(stemX, y0);
+
+    ctx.bezierCurveTo(
+      stemX + 10, y0 + 2 * dir,
+      stemX + 28, y0 + 20 * dir,
+      stemX + 18, y0 + 42 * dir
+    );
+
+    ctx.bezierCurveTo(
+      stemX + 12, y0 + 52 * dir,
+      stemX + 4, y0 + 46 * dir,
+      stemX + 6, y0 + 34 * dir
+    );
+
     ctx.stroke();
   }
 
-  // POSITION MAPPING (focus souris) — DILATATION AUTOUR DE LA SOURIS
-  notes.forEach(n=>{
-    let targetX = n.baseX;
+  // if (!flyer.complete) return;
+  // if (flyers[notes[i].flyer].complete) {
+  const w_current = flyer_W + zoom * 1000;
+  const h_current = w_current * 1.4;
+  const anchorY = p + (stemUp ? -stemH : 30);
+  const sway = Math.sin(Date.now() * 0.0005 + 5*i) * 2;
 
-    if(mouse.active){
-      const focus = mouse.x / W;
-      const rel = n.baseX / W;
-      const dist = rel - focus;
+  ctx.save();
+  ctx.translate(stemX + 20, anchorY);
+  ctx.transform(1, 0, sway * 0.02, 1, 0, 0);
+  drawFlyer(flyer, 0, 0, w_current, h_current);
+  ctx.restore();
 
-      // effet inverse : on ÉCARTE près de la souris, on COMPRESSE loin
-      const influence = Math.exp(-Math.abs(dist)*5); // fort près, faible loin
-
-      targetX = W * (rel + dist * influence * 0.8);
-    }
-
-    // retour fluide vers position cible
-    n.x += (targetX - n.x)*0.08;
-  });
-
-  // NOTES
-  notes.forEach(n=>{
-    const flyer_w = 150
-    const y = getLine(n.x, n.yLevel);
-
-    const d = Math.abs(mouse.x-(flyer_w/2+n.x));
-    const targetHover = (mouse.active && d<flyer_w)?1:0;
-    n.hover += (targetHover - n.hover)*0.08;
-
-    const size = 15 + n.hover*10;
-
-    ctx.beginPath();
-    ctx.ellipse(n.x,y,size,size*0.8,0,0,Math.PI*2);
-    ctx.fillStyle = "white";
-    if(n.type==="blanche") ctx.stroke(); else ctx.fill();
-
-    const stemUp = n.yLevel > 1;
-    const stemH = 100 + n.hover*50;
-    const stemX = n.x + (stemUp?size:-size);
-
-    ctx.beginPath();
-    ctx.moveTo(stemX,y);
-    ctx.lineTo(stemX, y + (stemUp?-stemH:stemH));
-    ctx.stroke();
-
-    if(n.type==="croche"){
-      ctx.beginPath();
-      ctx.moveTo(stemX, y + (stemUp?-stemH:stemH));
-      ctx.quadraticCurveTo(stemX+20, y, stemX+5, y+(stemUp?-stemH/2:stemH/2));
-      ctx.stroke();
-    }
-
-    const img = images[n.image];
-    if(img.complete){
-      const w = flyer_w + n.hover*60;
-      const h = w*1.4;
-      const anchorY = y + (stemUp?-stemH:30);
-      const wave = Math.sin(Date.now()*0.0005 + n.x*0.01)*2;
-
-      ctx.save();
-      ctx.translate(stemX, anchorY);
-      ctx.translate(20,0);
-      ctx.transform(1, 0, wave*0.02, 1, 0, 0);
-      ctx.drawImage(img,0,0,w,h);
-      ctx.restore();
-    }
-  });
-
-  requestAnimationFrame(draw);
+  //   notes[i].flyerBox = { t: stemX + 20, p: anchorY, w, h };
+  // } else {
+  //   notes[i].flyerBox = null;
+  // }
 }
 
-notes.forEach(n=> n.x = n.baseX);
+function animate() {
+  ctx.clearRect(0,0,W,window.innerHeight)
+  const g = ctx.createLinearGradient(0, 0, 0, window.innerHeight);
+  g.addColorStop(0, '#151525');
+  g.addColorStop(1, '#0f0f14');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, window.innerHeight);
+  drawStaff()
+  if (mobileMode) {
+    console.log('todo')
+  }
+  else {
+    let bestZoom = 0
+    let activeNote = notes[0]
+    notes.forEach((note,i) => {
+      note.time = (i + 1) * (W / (events.length + 1));
+      let dist = (note.time - mouse.x) / W
+      const influence = 0.8*Math.exp(-Math.abs(dist) * 5);
+      const targetX = mouse.active
+        ? W * (note.time/W + dist * influence)
+        : note.time
+      let x = mobileMode ? W * 0.5 : note.time;
+      x = targetX * 0.08 + x * 0.92
+      let y = offset + gain * getLine(x, note.pitch)
+      dist = Math.hypot(mouse.x - x, mouse.y - y)
 
-draw();
+      let zoom = mouse.active ? 0.08 * clamp(1 - dist/160,0,1) : 0
+      if (zoom > bestZoom) {
+        bestZoom = zoom
+        activeNote = note
+      }
+      drawNote(i, x, y, zoom)
+    });
+    syncInfoPanel(activeNote);
+  };
+  requestAnimationFrame(animate);
+}
+
+//////////////////////////////////////////////////////////////////////
+/////////////////////    Debut du script    //////////////////////////
+//////////////////////////////////////////////////////////////////////
+let scrollProgress = clamp(window.scrollY / clamp(document.body.scrollHeight - window.innerHeight,1,window.innerHeight), 0, 0.999);
+let mobileMode = window.innerWidth < 768;
+let dpr = window.devicePixelRatio || 1;
+let lastInfoId = -1;
+
+let W = window.innerWidth;
+let H = Math.max(window.innerHeight - (mobileMode ? 145 : 185));
+
+const flyer_W = W / 10
+const offset = mobileMode ? W*0.1 : H*0.2
+const gain = mobileMode ? 0.2 : 1
+
+canvas.width = Math.round(W * dpr);
+canvas.height = Math.round(window.innerHeight * dpr);
+canvas.style.width = W + 'px';
+canvas.style.height = window.innerHeight + 'px';
+
+ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+// notes.forEach((n, i) => {
+//   n.time = (i + 1) * (W / (events.length + 1));
+//   n.renderX = mobileMode ? W * 0.5 : n.baseX;
+//   n.renderY = window.innerHeight * 0.5;
+
+// const g = ctx.createLinearGradient(0, 0, 0, window.innerHeight);
+// g.addColorStop(0, '#151525');
+// g.addColorStop(1, '#0f0f14');
+// ctx.fillStyle = g;
+// ctx.fillRect(0, 0, W, window.innerHeight);
+
+// updateScrollProgress();
+syncInfoPanel(notes[0]);
+animate()
 </script>
 </body>
 </html>
