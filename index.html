@@ -191,6 +191,27 @@ function clamp(v, min, max) {
   return Math.max(min, Math.min(max, v));
 }
 
+// Interpolation linéaire simple entre deux valeurs.
+function lerp(a, b, t) {
+  return a + (b - a) * t;
+}
+
+// Interpolation entre deux rectangles.
+function lerpBox(a, b, t) {
+  return {
+    x: lerp(a.x, b.x, t),
+    y: lerp(a.y, b.y, t),
+    w: lerp(a.w, b.w, t),
+    h: lerp(a.h, b.h, t)
+  };
+}
+
+// Adoucit une progression 0..1 pour éviter les mouvements trop secs.
+function smoothstep(edge0, edge1, x) {
+  const t = clamp((x - edge0) / (edge1 - edge0), 0, 1);
+  return t * t * (3 - 2 * t);
+}
+
 // Met à jour le panneau d'information du flyer actif.
 function syncInfoPanel(note) {
   if (!note || note.id === lastInfoId) return;
@@ -218,7 +239,7 @@ canvas.addEventListener('pointerleave', () => {
 
 // les montagnes
 function mountain(x) {
-  const t = x / W;
+  const t = x / (mobileMode ? H : W);
   const g = (c, w, h) => h * Math.exp(-0.5 * ((t - c) / w) ** 2);
   return 150 + (-g(0.14, 0.07,  90) + g(0.24, 0.03,  18) - g(0.34, 0.05,  70) + g(0.48, 0.03,  45) - g(0.66, 0.06, 190) - g(0.76, 0.025, 80) + g(0.84, 0.03,  30) - g(0.93, 0.04, 100) );
 }
@@ -297,21 +318,29 @@ function drawFlyer(flyer, x, y, w, h) {
   }
 }
 
-function drawNote(i, t, p, zoom) {
+function drawNote(i, box, zoom=1, no_sway=false) {
+  const t = (mobileMode ? box.y : box.x)
   const flyer = flyers[notes[i].flyer]
-  const head_size = 25 + zoom * 10
+  const head_size = (mobileMode ? 7 : 25 + zoom * 10)
   const w = mobileMode ? head_size * 0.8 : head_size
   const h = mobileMode ? head_size : head_size * 0.8
   const stemUp = mobileMode ? false : (notes[i].pitch >= 4);
-  const stemH = 140 + zoom * 500;
-  const stemX = t + (stemUp ? (head_size-1) : (-head_size+1));
+  const dir = stemUp ? 1 : -1;
+  const stemLength = 140 + zoom * 500;
+  const stemT = t + (stemUp ? (head_size-1) : (-head_size+1));
+  const x_note = W - (offset + gain * getLine(t, notes[i].pitch))
+  const lineTh = (mobileMode ? 2 : 3)
 
   //la tête
   ctx.beginPath();
-  ctx.ellipse(t, p, w, h, -0.3, 0, Math.PI * 2);
+  if (mobileMode) {
+    ctx.ellipse(x_note, box.y, w, h, -0.3, 0, Math.PI * 2);
+  } else {
+    ctx.ellipse(box.x, box.y, w, h, -0.3, 0, Math.PI * 2);
+  }
   if (notes[i].type === 'blanche') {
     ctx.strokeStyle = 'white';
-    ctx.lineWidth = 3;
+    ctx.lineWidth = lineTh;
     ctx.stroke();
   } else {
     ctx.fillStyle = 'white';
@@ -320,58 +349,89 @@ function drawNote(i, t, p, zoom) {
 
   // la hampe
   ctx.beginPath();
-  ctx.moveTo(stemX, p);
-  ctx.lineTo(stemX, p + (stemUp ? -stemH : stemH));
+  if (mobileMode) {
+    ctx.moveTo(x_note, stemT);
+    ctx.lineTo(box.x - 50, stemT);
+  } else {
+    ctx.moveTo(stemT, box.y);
+    ctx.lineTo(stemT, box.y + (stemUp ? -stemLength : stemLength));
+  }
   ctx.strokeStyle = 'white';
-  ctx.lineWidth = 3;
+  ctx.lineWidth = lineTh;
   ctx.lineCap = 'round';
   ctx.stroke();
   if (notes[i].type === 'croche') {
-    // ctx.beginPath();
-    // ctx.moveTo(stemX, p + (stemUp ? -stemH : stemH));
-    // ctx.quadraticCurveTo(stemX + 20, p, stemX + 5, p + (stemUp ? -stemH / 2 : stemH / 2));
-    // ctx.stroke();
-    const y0 = p + (stemUp ? -stemH : stemH);
-    const dir = stemUp ? 1 : -1;
-
-    ctx.beginPath();
-    ctx.moveTo(stemX, y0);
-
-    ctx.bezierCurveTo(
-      stemX + 10, y0 + 2 * dir,
-      stemX + 28, y0 + 20 * dir,
-      stemX + 18, y0 + 42 * dir
-    );
-
-    ctx.bezierCurveTo(
-      stemX + 12, y0 + 52 * dir,
-      stemX + 4, y0 + 46 * dir,
-      stemX + 6, y0 + 34 * dir
-    );
-
+    if (mobileMode) {
+      const x0 = box.x - 50;
+      ctx.beginPath();
+      ctx.moveTo(x0, stemT);
+      ctx.bezierCurveTo(
+        x0 + 2,  stemT + 10,
+        x0 + 20, stemT + 28,
+        x0 + 42, stemT + 18
+      );
+      ctx.bezierCurveTo(
+        x0 + 52, stemT + 12,
+        x0 + 46, stemT + 4,
+        x0 + 34, stemT + 6
+      );
+    } else {
+      const y0 = box.y + (stemUp ? -stemLength : stemLength);
+      ctx.beginPath();
+      ctx.moveTo(stemT, y0);
+      ctx.bezierCurveTo(
+        stemT + 10, y0 + 2 * dir,
+        stemT + 28, y0 + 20 * dir,
+        stemT + 18, y0 + 42 * dir
+      );
+      ctx.bezierCurveTo(
+        stemT + 12, y0 + 52 * dir,
+        stemT + 4, y0 + 46 * dir,
+        stemT + 6, y0 + 34 * dir
+      );
+    }
     ctx.stroke();
   }
 
-  // if (!flyer.complete) return;
-  // if (flyers[notes[i].flyer].complete) {
-  const w_current = flyer_W + zoom * 1000;
-  const h_current = w_current * 1.4;
-  const anchorY = p + (stemUp ? -stemH : 30);
+  const w_current = (mobileMode ? box.w : flyer_W + zoom * 1000);
+  const h_current = (mobileMode ? box.h : w_current * 1.4);
+  const anchorY = box.y + (stemUp ? -stemLength : 30);
   const sway = Math.sin(Date.now() * 0.0005 + 5*i) * 2;
 
   ctx.save();
-  ctx.translate(stemX + 20, anchorY);
-  ctx.transform(1, 0, sway * 0.02, 1, 0, 0);
+  if (mobileMode) {
+    ctx.translate(box.x, box.y);
+  } else { 
+    ctx.translate(stemT + 20, anchorY);
+  }
+  if (!no_sway) {
+    ctx.transform(1, 0, sway * 0.02, 1, 0, 0);
+  }
   drawFlyer(flyer, 0, 0, w_current, h_current);
   ctx.restore();
+}
 
-  //   notes[i].flyerBox = { t: stemX + 20, p: anchorY, w, h };
-  // } else {
-  //   notes[i].flyerBox = null;
-  // }
+// Construit une boîte mobile à partir d'une case de rangée.
+function rowBox(slotIndex, slotCount, y, boxW, boxH, kind, t, drift = 0) {
+  const margin = clamp(W * 0.035, 10, 18);
+
+  if (slotCount <= 0) {
+    return (W - boxW) / 2;
+  }
+
+  const spread = Math.max(0, W - 2 * margin - boxW);
+
+  // Grille stable : le mouvement ne dépend pas du nombre d'éléments visibles.
+  const base = margin + (slotIndex+1) / (slotCount+1) * spread;
+  const edgeResistance = ((slotCount <= 1) ? 1 : 0.78 + 0.22 * Math.sin(Math.PI * slotIndex / slotCount))
+  const resistedDrift = drift * edgeResistance;
+
+  const rowX = clamp(base + resistedDrift, margin, W - margin - boxW);
+  return {x: rowX, y, w: boxW, h: boxH};
 }
 
 function animate() {
+  let activeNote = notes[0]
   ctx.clearRect(0,0,W,window.innerHeight)
   const g = ctx.createLinearGradient(0, 0, 0, window.innerHeight);
   g.addColorStop(0, '#151525');
@@ -380,11 +440,79 @@ function animate() {
   ctx.fillRect(0, 0, W, window.innerHeight);
   drawStaff()
   if (mobileMode) {
-    console.log('todo')
-  }
-  else {
+    let scrollProgress = clamp(window.scrollY / clamp(document.body.scrollHeight - window.innerHeight,1,window.innerHeight), 0, 0.999);
+    scrollProgress *= events.length
+    const active = Math.floor(scrollProgress) % events.length;
+    scrollProgress = scrollProgress - active
+
+    // Phases de mouvement séparées pour éviter les déplacements synchrones.
+    const topPhase = smoothstep(0.00, 0.50, scrollProgress);
+    const swapPhase = smoothstep(0.42, 0.72, scrollProgress);
+    const bottomPhase = smoothstep(0.00, 1.00, scrollProgress);
+
+    const thumbW = clamp(W * 0.16, 54, 72);
+    const thumbH = Math.round(thumbW * 1.22);
+    const centerW = clamp(W * 0.64, 190, 330);
+    const centerH = Math.round(centerW * 1.34);
+
+    const topY = Math.max(10, H * 0.07);
+    const centerY = topY + thumbH + 10
+    const bottomY = H*0.85
+
+    const centerBox = {
+      x: (W - centerW) / 2,
+      y: centerY,
+      w: centerW,
+      h: centerH
+    };
+
+    // Petit mouvement global pour que les coins ne soient jamais totalement figés.
+    const topDrift = (topPhase - 0.5) * 8;
+    const bottomDrift = -(bottomPhase - 0.5) * 8;
+
+    // smaller flyer closer to staff to let note get through
+    const scale = 5
+    let box = {}
+    let no_sway = false
+
+    for (let i = 0; i < events.length; i++) {
+      no_sway = false
+      if (i===active) {
+        // Flyer actif : il reste au centre puis bascule vite vers le haut.
+        const topDestination = rowBox(i, i+1, topY+i*scale, thumbW-i*scale, thumbH-i*scale, 'top', topPhase, topDrift);
+        box = lerpBox(centerBox, topDestination, swapPhase);
+        if (scrollProgress === 0) {
+          no_sway = true
+        }
+      }
+      if (i===(active+1)) {
+        // Flyer suivant : il part du bas et remplace l'ancien actif au centre.
+        if (notes[(active + 1) % events.length]) {
+          const nextIndex = i % events.length;
+          const startBox = rowBox(0, events.length-i+1, bottomY, thumbW, thumbH, 'bottom', bottomPhase, bottomDrift);
+          box = lerpBox(startBox, centerBox, swapPhase);
+          no_sway = true
+        }
+      }
+      if (i<active) {
+        // Rangée du haut : les flyers déjà passés se tassent légèrement.
+        const startBox = rowBox(i, active, topY+i*scale, thumbW-i*scale, thumbH-i*scale, 'top', topPhase, topDrift);
+        const endBox = rowBox(i, active+1, topY+i*scale, thumbW-i*scale, thumbH-i*scale, 'top', topPhase, topDrift);
+        box = lerpBox(startBox, endBox, topPhase);
+      } else {
+        if (i>active+1) {
+          // Autres flyers du bas : ils s'écartent pendant toute la transition.
+          const j = i - active - 2
+          const startBox = rowBox(j+1, events.length - active, bottomY+(j+1)*scale, thumbW-(j+1)*scale, thumbH-(j+1)*scale, 'bottom', 0, bottomDrift);
+          const endBox = rowBox(j, events.length - active - 1, bottomY+j*scale, thumbW-j*scale, thumbH-j*scale, 'bottom', bottomPhase, bottomDrift);
+          box = lerpBox(startBox, endBox, bottomPhase);
+        }
+      }
+      drawNote(i, box, 0, no_sway);
+      activeNote = notes[active]
+    }
+  } else {
     let bestZoom = 0
-    let activeNote = notes[0]
     notes.forEach((note,i) => {
       note.time = (i + 1) * (W / (events.length + 1));
       let dist = (note.time - mouse.x) / W
@@ -402,17 +530,17 @@ function animate() {
         bestZoom = zoom
         activeNote = note
       }
-      drawNote(i, x, y, zoom)
+      const box = {x: x, y: y}
+      drawNote(i, box, zoom)
     });
-    syncInfoPanel(activeNote);
   };
+  syncInfoPanel(activeNote);
   requestAnimationFrame(animate);
 }
 
 //////////////////////////////////////////////////////////////////////
 /////////////////////    Debut du script    //////////////////////////
 //////////////////////////////////////////////////////////////////////
-let scrollProgress = clamp(window.scrollY / clamp(document.body.scrollHeight - window.innerHeight,1,window.innerHeight), 0, 0.999);
 let mobileMode = window.innerWidth < 768;
 let dpr = window.devicePixelRatio || 1;
 let lastInfoId = -1;
