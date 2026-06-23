@@ -115,7 +115,7 @@
       font-size: 14px;
       margin-bottom: 4px;
       line-height: 1.06;
-      margin-right: 90px;
+      margin-right: 100px;
     }
 
     #infoLink {
@@ -157,7 +157,7 @@ const events = Array.from({ length: 5 }, (_, i) => ({
     'Un flyer suspendu, un moment à venir, et une musique qui prend forme dans l’espace.',
     'Un concert imaginaire aux lignes souples, entre affichage graphique et partition vivante.',
     'Une date qui glisse dans le temps comme une note qui s’étire avant de retomber.',
-    'Une affiche vivante, pensée comme un objet sonore autant que visuel.',
+    'Une affiche vivante, pensée comme un objet sonore autant que visuel. Une affiche vivante, pensée comme un objet sonore autant que visuel. Une affiche vivante, pensée comme un objet sonore autant que visuel.',
     'Le dernier flyer de la série, posé comme une cadence finale.'
   ][i]
 }));
@@ -440,7 +440,7 @@ function animate() {
   ctx.fillRect(0, 0, W, H);
   drawStaff()
   if (mobileMode) {
-    let scrollProgress = clamp(window.scrollY / (document.documentElement.scrollHeight - window.innerHeight), 0, 0.999);
+    let scrollProgress = clamp(window.scrollY / (document.documentElement.scrollHeight - window.innerHeight)/(events.length+1)*events.length, 0, 0.999);
     scrollProgress *= events.length
     let active = Math.floor(scrollProgress) % events.length;
     scrollProgress = scrollProgress - active
@@ -548,11 +548,11 @@ const iframe_scale = 0.88
 
 let W = window.innerWidth;
 let H = window.innerHeight;
-if (mobileMode) {
-  H *= iframe_scale
-} else {
-  W *= iframe_scale
-}
+// if (mobileMode) {
+//   H *= iframe_scale
+// } else {
+//   W *= iframe_scale
+// }
 
 const flyer_W = W / 10
 const offset = mobileMode ? W*0.1 : H*0.2
