@@ -1,6 +1,9 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
 <title>Événements à venir</title>
@@ -12,7 +15,7 @@
     background: #0f0f14;
     overflow-x: hidden;
     min-height: 320vh;
-    font-family: sans-serif;
+    font-family: 'Poppins', sans-serif;
     touch-action: pan-y;
     color: white;
   }
@@ -54,14 +57,6 @@
     pointer-events: auto;
   }
 
-  #infoPanel .eyebrow {
-    margin: 0 0 8px;
-    font-size: 12px;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    opacity: 0.65;
-  }
-
   #infoTitle {
     margin: 0 0 8px;
     font-size: clamp(22px, 3vw, 34px);
@@ -98,14 +93,11 @@
     }
 
     #infoPanel {
-      width: 100%;
+      position: fixed;
+      top: 10px;
+      width: 91%;
       padding: 12px 14px;
       border-radius: 18px;
-    }
-
-    #infoPanel .eyebrow {
-      margin-bottom: 6px;
-      font-size: 10px;
     }
 
     #infoTitle {
@@ -120,12 +112,16 @@
     }
 
     #infoDesc {
-      display: none;
+      font-size: 14px;
+      margin-bottom: 4px;
+      line-height: 1.06;
+      margin-right: 90px;
     }
 
     #infoLink {
-      padding: 8px 12px;
-      font-size: 13px;
+      position: absolute;
+      right: 10px;
+      bottom: 10px;
     }
   }
 </style>
@@ -135,7 +131,6 @@
 
 <main id="content">
   <section id="infoPanel">
-    <p class="eyebrow">Flyer actif</p>
     <h2 id="infoTitle"></h2>
     <p id="infoDate"></p>
     <p id="infoDesc"></p>
@@ -217,7 +212,11 @@ function syncInfoPanel(note) {
   if (!note || note.id === lastInfoId) return;
   lastInfoId = note.id;
   infoTitle.textContent = note.title;
-  infoDate.textContent = note.date.toDateString();
+  infoDate.textContent = note.date.toLocaleDateString('fr-FR', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric'
+  });;
   infoDesc.textContent = note.description;
   infoLink.href = note.link;
 }
@@ -351,7 +350,7 @@ function drawNote(i, box, zoom=1, no_sway=false) {
   ctx.beginPath();
   if (mobileMode) {
     ctx.moveTo(x_note, stemT);
-    ctx.lineTo(box.x - 50, stemT);
+    ctx.lineTo(box.x, stemT);
   } else {
     ctx.moveTo(stemT, box.y);
     ctx.lineTo(stemT, box.y + (stemUp ? -stemLength : stemLength));
@@ -364,7 +363,8 @@ function drawNote(i, box, zoom=1, no_sway=false) {
     if (mobileMode) {
       const x0 = box.x - 50;
       ctx.beginPath();
-      ctx.moveTo(x0, stemT);
+      ctx.moveTo(box.x, stemT);
+      ctx.lineTo(x0, stemT);
       ctx.bezierCurveTo(
         x0 + 2,  stemT + 10,
         x0 + 20, stemT + 28,
@@ -432,17 +432,17 @@ function rowBox(slotIndex, slotCount, y, boxW, boxH, kind, t, drift = 0) {
 
 function animate() {
   let activeNote = notes[0]
-  ctx.clearRect(0,0,W,window.innerHeight)
-  const g = ctx.createLinearGradient(0, 0, 0, window.innerHeight);
+  ctx.clearRect(0,0,W,H)
+  const g = ctx.createLinearGradient(0, 0, 0, H);
   g.addColorStop(0, '#151525');
   g.addColorStop(1, '#0f0f14');
   ctx.fillStyle = g;
-  ctx.fillRect(0, 0, W, window.innerHeight);
+  ctx.fillRect(0, 0, W, H);
   drawStaff()
   if (mobileMode) {
-    let scrollProgress = clamp(window.scrollY / clamp(document.body.scrollHeight - window.innerHeight,1,window.innerHeight), 0, 0.999);
+    let scrollProgress = clamp(window.scrollY / (document.documentElement.scrollHeight - window.innerHeight), 0, 0.999);
     scrollProgress *= events.length
-    const active = Math.floor(scrollProgress) % events.length;
+    let active = Math.floor(scrollProgress) % events.length;
     scrollProgress = scrollProgress - active
 
     // Phases de mouvement séparées pour éviter les déplacements synchrones.
@@ -451,13 +451,13 @@ function animate() {
     const bottomPhase = smoothstep(0.00, 1.00, scrollProgress);
 
     const thumbW = clamp(W * 0.16, 54, 72);
-    const thumbH = Math.round(thumbW * 1.22);
+    const thumbH = Math.round(thumbW * 1.1);
     const centerW = clamp(W * 0.64, 190, 330);
-    const centerH = Math.round(centerW * 1.34);
+    const centerH = Math.round(centerW * 1.3);
 
-    const topY = Math.max(10, H * 0.07);
+    const topY = Math.max(10, H * 0.1);
     const centerY = topY + thumbH + 10
-    const bottomY = H*0.85
+    const bottomY = centerY + centerH
 
     const centerBox = {
       x: (W - centerW) / 2,
@@ -481,9 +481,9 @@ function animate() {
         // Flyer actif : il reste au centre puis bascule vite vers le haut.
         const topDestination = rowBox(i, i+1, topY+i*scale, thumbW-i*scale, thumbH-i*scale, 'top', topPhase, topDrift);
         box = lerpBox(centerBox, topDestination, swapPhase);
-        if (scrollProgress === 0) {
+        // if (scrollProgress === 0) {
           no_sway = true
-        }
+        // }
       }
       if (i===(active+1)) {
         // Flyer suivant : il part du bas et remplace l'ancien actif au centre.
@@ -509,7 +509,7 @@ function animate() {
         }
       }
       drawNote(i, box, 0, no_sway);
-      activeNote = notes[active]
+      activeNote = notes[(scrollProgress>0.5 ? active + 1 : active)]
     }
   } else {
     let bestZoom = 0
@@ -544,31 +544,37 @@ function animate() {
 let mobileMode = window.innerWidth < 768;
 let dpr = window.devicePixelRatio || 1;
 let lastInfoId = -1;
+const iframe_scale = 0.88
 
 let W = window.innerWidth;
-let H = Math.max(window.innerHeight - (mobileMode ? 145 : 185));
+let H = window.innerHeight;
+if (mobileMode) {
+  H *= iframe_scale
+} else {
+  W *= iframe_scale
+}
 
 const flyer_W = W / 10
 const offset = mobileMode ? W*0.1 : H*0.2
 const gain = mobileMode ? 0.2 : 1
 
 canvas.width = Math.round(W * dpr);
-canvas.height = Math.round(window.innerHeight * dpr);
+canvas.height = Math.round(H * dpr);
 canvas.style.width = W + 'px';
-canvas.style.height = window.innerHeight + 'px';
+canvas.style.height = H + 'px';
 
 ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
 // notes.forEach((n, i) => {
 //   n.time = (i + 1) * (W / (events.length + 1));
 //   n.renderX = mobileMode ? W * 0.5 : n.baseX;
-//   n.renderY = window.innerHeight * 0.5;
+//   n.renderY = H * 0.5;
 
-// const g = ctx.createLinearGradient(0, 0, 0, window.innerHeight);
+// const g = ctx.createLinearGradient(0, 0, 0, H);
 // g.addColorStop(0, '#151525');
 // g.addColorStop(1, '#0f0f14');
 // ctx.fillStyle = g;
-// ctx.fillRect(0, 0, W, window.innerHeight);
+// ctx.fillRect(0, 0, W, H);
 
 // updateScrollProgress();
 syncInfoPanel(notes[0]);
