@@ -48,9 +48,9 @@
 
   #infoPanel {
     width: min(100%, 760px);
-    background: rgba(18, 18, 26, 0.68);
+    background: rgba(18, 18, 26, 0.6);
     border: 1px solid rgba(255,255,255,0.09);
-    backdrop-filter: blur(18px);
+    backdrop-filter: blur(20px);
     border-radius: 24px;
     padding: 18px 20px;
     box-shadow: 0 18px 60px rgba(0, 0, 0, 0.35);
@@ -188,6 +188,8 @@ const notes = events.map((c, i) => ({
   ...c
 }));
 
+let mobileBoxes = [];  // positions des flyers en version mobile, mises à jour à chaque frame
+
 //////////////////////////////////////////////////////////////////////
 // Limite une valeur dans un intervalle.
 function clamp(v, min, max) {
@@ -229,6 +231,35 @@ function syncInfoPanel(note) {
   infoLink.href = note.link || '#';
 }
 
+function scrollToMobileFlyer(index) {
+  const scrollable = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
+  const target = clamp((index / events.length) * scrollable, 0, scrollable);
+  window.scrollTo({ top: target, behavior: 'smooth' });
+}
+
+function getMobileFlyerIndexAtPoint(x, y) {
+  let bestIndex = -1;
+  let bestDist = Infinity;
+
+  for (let i = 0; i < mobileBoxes.length; i++) {
+    const box = mobileBoxes[i];
+    if (!box) continue;
+
+    const inside = x >= box.x && x <= box.x + box.w && y >= box.y && y <= box.y + box.h;
+    if (inside) return i;
+
+    const cx = box.x + box.w / 2;
+    const cy = box.y + box.h / 2;
+    const dist = Math.hypot(x - cx, y - cy);
+    if (dist < bestDist) {
+      bestDist = dist;
+      bestIndex = i;
+    }
+  }
+
+  return bestDist <= 90 ? bestIndex : -1;
+}
+
 // les mouvements de la souris
 const mouse = { x: -9999, y: -9999, active: false };
 
@@ -242,6 +273,19 @@ canvas.addEventListener('pointermove', (e) => {
 
 canvas.addEventListener('pointerleave', () => {
   mouse.active = false;
+});
+
+canvas.addEventListener('pointerdown', (e) => {
+  if (!mobileMode) return;
+
+  const rect = canvas.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
+  const index = getMobileFlyerIndexAtPoint(x, y);
+  if (index < 0) return;
+
+  e.preventDefault();
+  scrollToMobileFlyer(index);
 });
 
 // les montagnes
@@ -448,6 +492,7 @@ function animate() {
   ctx.fillRect(0, 0, W, H);
   drawStaff()
   if (mobileMode) {
+    mobileBoxes = [];
     const scrollable = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
     let scrollProgress = clamp((window.scrollY / scrollable) * events.length, 0, events.length - 0.001);
     let active = Math.floor(scrollProgress) % events.length;
@@ -516,6 +561,7 @@ function animate() {
           box = lerpBox(startBox, endBox, bottomPhase);
         }
       }
+      mobileBoxes[i] = box;
       drawNote(i, box, 0, no_sway);
       activeNote = notes[(scrollProgress>0.5 ? active + 1 : active)]
     }
