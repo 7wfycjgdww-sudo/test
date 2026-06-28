@@ -8,20 +8,31 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
 <title>Événements à venir</title>
 <style>
+  :root {
+    --bg:           #0f0f14;
+    --panel-bg:     rgba(17, 17, 24, 0.92);
+    --panel-border: rgba(255,255,255,0.09);
+    --panel-shadow: rgba(0,0,0,0.35);
+    --text:         white;
+    --link:         #6cf;
+    --link-border:  rgba(102,204,255,0.35);
+  }
+
   html, body {
     margin: 0;
     padding: 0;
     width: 100%;
-    background: #0f0f14;
+    background: var(--bg);
     overflow-x: hidden;
-    min-height: 320vh;
+    height: 100%;
+    overflow: hidden;
     font-family: 'Poppins', sans-serif;
-    touch-action: pan-y;
-    color: white;
+    touch-action: none;
+    color: var(--text);
   }
 
   body {
-    padding-bottom: 190px;
+    padding: 0;
   }
 
   canvas {
@@ -30,7 +41,7 @@
     display: block;
     width: 100vw;
     height: 100vh;
-    touch-action: pan-y;
+    touch-action: none;
     z-index: 1;
   }
 
@@ -40,7 +51,7 @@
     right: 0;
     bottom: 0;
     z-index: 2;
-    padding: 16px 16px max(16px, env(safe-area-inset-bottom));
+    padding: 16px 16px 16px;
     display: flex;
     justify-content: center;
     pointer-events: none;
@@ -48,16 +59,13 @@
 
   #infoPanel {
     width: min(100%, 760px);
-    background: rgba(18, 18, 26, 0.6);
-    border: 1px solid rgba(255,255,255,0.09);
-    backdrop-filter: blur(20px);
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    backdrop-filter: blur(10px);
     border-radius: 24px;
     padding: 18px 20px;
-    box-shadow: 0 18px 60px rgba(0, 0, 0, 0.35);
+    box-shadow: 0 18px 60px var(--panel-shadow);
     pointer-events: auto;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
   }
 
   #infoTitle {
@@ -67,69 +75,65 @@
   }
 
   #infoDate {
-    margin: 0;
+    margin: 0 0 14px;
     opacity: 0.8;
   }
 
   #infoDesc {
-    margin: 0;
+    margin: 0 0 16px;
     line-height: 1.55;
     max-width: 64ch;
   }
 
   #infoLink {
     display: inline-block;
-    color: #6cf;
+    color: var(--link);
     text-decoration: none;
-    border: 1px solid rgba(102, 204, 255, 0.35);
+    border: 1px solid var(--link-border);
     padding: 10px 14px;
     border-radius: 999px;
-    width: fit-content;
   }
 
   @media (max-width: 767px) {
     body {
-      padding-bottom: 132px;
+      padding: 0;
     }
 
     #content {
-      padding: 10px 10px max(10px, env(safe-area-inset-bottom));
+      padding: 10px 10px 10px;
     }
 
     #infoPanel {
       position: fixed;
-      top: max(10px, env(safe-area-inset-top));
-      left: 10px;
-      right: 10px;
-      width: auto;
-      max-width: none;
+      top: 10px;
+      width: 91%;
       padding: 12px 14px;
       border-radius: 18px;
-      opacity: 0.92;
-      gap: 6px;
-      backdrop-filter: blur(14px);
+      opacity: 0.8;
     }
 
     #infoTitle {
-      font-size: 19px;
-      margin-bottom: 0;
-      line-height: 1.1;
+      font-size: 18px;
+      margin-bottom: 4px;
+      line-height: 1.06;
     }
 
     #infoDate {
+      margin-bottom: 8px;
       font-size: 13px;
-      margin-bottom: 0;
     }
 
     #infoDesc {
       font-size: 14px;
-      line-height: 1.35;
+      margin-bottom: 4px;
+      line-height: 1.06;
+      margin-right: 100px;
     }
 
     #infoLink {
-      align-self: flex-end;
-      margin-top: 4px;
-      position: static;
+      position: absolute;
+      right: 10px;
+      bottom: 10px;
     }
   }
 </style>
@@ -156,39 +160,248 @@ const infoDate = document.getElementById('infoDate');
 const infoDesc = document.getElementById('infoDesc');
 const infoLink = document.getElementById('infoLink');
 
-const events = Array.from({ length: 5 }, (_, i) => ({
-  date: new Date(2026, i, 10),
-  title: 'Concert ' + (i + 1),
-  flyer: 'https://picsum.photos/200/300?random=' + i,
-  link: '#',
-  description: [
-    'Un flyer suspendu, un moment à venir, et une musique qui prend forme dans l’espace.',
-    'Un concert imaginaire aux lignes souples, entre affichage graphique et partition vivante.',
-    'Une date qui glisse dans le temps comme une note qui s’étire avant de retomber.',
-    'Une affiche vivante, pensée comme un objet sonore autant que visuel. Une affiche vivante, pensée comme un objet sonore autant que visuel. Une affiche vivante, pensée comme un objet sonore autant que visuel.',
-    'Le dernier flyer de la série, posé comme une cadence finale.'
-  ][i]
-}));
+// ── Thème clair / sombre ─────────────────────────────────────────────────────
+// Couleurs extraites du logo Harmonie de Grenoble :
+//   teal    #47BBCB  (texte "Harmonie" + note musicale)
+//   navy    #1E4080  (texte "de Grenoble")
+//   montagne #A8B4BA (silhouette)
+const THEMES = {
+  dark: {
+    bgTop:         '#151525',
+    bgBot:         '#0f0f14',
+    staff:         '#DBDCDE',
+    clef:          '#DBDCDE',
+    note:          '#41B8E5',
+    flyerEmpty:    '#222',
+    vignetteColor: 'rgba(12, 12, 18, 0.97)',
+    // CSS
+    bg:          '#0f0f14',
+    panelBg:     'rgba(17,17,24,0.92)',
+    panelBorder: 'rgba(255,255,255,0.09)',
+    panelShadow: 'rgba(0,0,0,0.35)',
+    text:        '#41B8E5',
+    link:        '#2B7FC9',
+    linkBorder:  'rgba(102,204,255,0.35)',
+  },
+  light: {
+    bgTop:         '#eeeef6',
+    bgBot:         '#f5f5fa',
+    staff:         '#DBDCDE',
+    clef:          'rgba(65, 183, 229, 0.8)',
+    note:          '#41B8E5',
+    flyerEmpty:    '#DBDCDE',
+    vignetteColor: 'rgba(245, 245, 250, 0.97)',
+    // CSS
+    bg:          '#DBDCDE',
+    panelBg:     '#DBDCDE',
+    panelBorder: 'rgba(0,0,0,0.08)',
+    panelShadow: 'rgba(0,0,0,0.12)',
+    text:        '#2B7FC9',
+    link:        '#2B7FC9',
+    linkBorder:  'rgba(0,102,170,0.35)',
+  }
+};
 
+let T = THEMES.dark; // thème actif
+
+function applyTheme(dark) {
+  T = dark ? THEMES.dark : THEMES.light;
+  const r = document.documentElement.style;
+  r.setProperty('--bg',           T.bg);
+  r.setProperty('--panel-bg',     T.panelBg);
+  r.setProperty('--panel-border', T.panelBorder);
+  r.setProperty('--panel-shadow', T.panelShadow);
+  r.setProperty('--text',         T.text);
+  r.setProperty('--link',         T.link);
+  r.setProperty('--link-border',  T.linkBorder);
+  // forcer la regen du gradient au prochain resize/frame
+  bgGradient = null;
+  lastInfoId  = -1;
+  scheduleRender();
+}
+
+const darkMQ = window.matchMedia('(prefers-color-scheme: dark)');
+darkMQ.addEventListener('change', e => applyTheme(e.matches));
+
+// ── Config ─────────────────────────────────────────────────────────────────
+// Remplacer par le nom de ton agenda Tockify
+const TOCKIFY_CALNAME = 'hdgtest';
+
+// ── Tockify ─────────────────────────────────────────────────────────────────
+class TockifyAgenda {
+  constructor(calname, options = {}) {
+    this.calname = calname;
+    this.baseUrl = options.baseUrl || 'https://tockify.com/api/ngevent';
+    this.limit   = options.limit   || 10;
+  }
+
+  buildApiUrl(limit = this.limit) {
+    const url = new URL(this.baseUrl);
+    url.searchParams.set('max',             String(limit));
+    url.searchParams.set('view',            'agenda');
+    url.searchParams.set('calname',         this.calname);
+    url.searchParams.set('start-inclusive', 'true');
+    url.searchParams.set('longForm',        'false');
+    url.searchParams.set('showAll',         'false');
+    url.searchParams.set('startms',         String(Date.now()));
+    return url.toString();
+  }
+
+  async loadEvents(limit = this.limit) {
+    const res = await fetch(this.buildApiUrl(limit), {
+      headers: { Accept: 'application/json' }
+    });
+    if (!res.ok) throw new Error(`Tockify error ${res.status}`);
+    const data = await res.json();
+    const raw  = Array.isArray(data.events) ? data.events : [];
+    // Log pour déboguer la structure réelle de l'API
+    if (raw.length) console.log('[Tockify] premier événement brut :', JSON.stringify(raw[0], null, 2));
+    return raw
+      .map(ev => this.normalizeEvent(ev))
+      .filter(Boolean)
+      .slice(0, limit);
+  }
+
+  normalizeEvent(ev) {
+    const c       = ev?.content || {};
+    const when    = ev?.when    || {};
+    const startMs = when?.start?.millis ?? ev?.eid?.tid ?? null;
+    if (!startMs) return null;
+
+    const rawDescription = c.description?.text || '';
+    const description    = this.cleanDescription(rawDescription);
+    const link           = this.extractTicketUrl(c) || null;
+
+    return {
+      id:          ev?.eid?.uid || String(startMs),
+      date:        new Date(startMs),
+      title:       c.summary?.text?.trim() || '',
+      flyer:       this.extractImage(ev),
+      link,
+      description,
+      location:    this.extractLocation(c),
+    };
+  }
+
+  // Pas d'URL directe dans imageSets — on construit depuis ownerId + id
+  extractImage(ev) {
+    const c   = ev?.content || {};
+    const set = (c.imageSets || []).find(s => s.id && s.ownerId);
+    if (set) return `https://d3flpus5evl89n.cloudfront.net/${set.ownerId}/${set.id}/scaled_512.jpg`;
+    if (c.imageIdNg && ev?.calid)
+      return `https://d3flpus5evl89n.cloudfront.net/${ev.calid}/${c.imageIdNg}/scaled_512.jpg`;
+    return null;
+  }
+
+  // Lien billetterie : champ dédié > href dans description > URL nue > vlocation
+  extractTicketUrl(c) {
+    if (c.ticketUrl) return c.ticketUrl;
+    const html = c.description?.text || '';
+    const href = html.match(/href=["']([^"']*https?:\/\/[^"']+)["']/i);
+    if (href) return href[1];
+    const url = html.match(/https?:\/\/\S+/i);
+    if (url) return url[0].replace(/[.,;)]+$/, '');
+    if (c.vlocation?.url) return c.vlocation.url;
+    return null;
+  }
+
+  // Combine lieu et adresse, déduplique si identiques
+  extractLocation(c) {
+    const place   = (c.place   || '').trim();
+    const address = (c.address || '').trim();
+    if (!place)                        return address;
+    if (!address)                      return place;
+    if (address.startsWith(place))     return address;
+    return `${place} — ${address}`;
+  }
+
+  // Supprime le HTML, décode les entités, retire les URLs nues et normalise les espaces
+  cleanDescription(html) {
+    if (!html) return '';
+    return html
+      .replace(/<[^>]*>/g, ' ')                         // balises → espace
+      .replace(/&amp;/g,  '&')
+      .replace(/&lt;/g,   '<')
+      .replace(/&gt;/g,   '>')
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&#?\w+;/g, '')                          // entités résiduelles
+      .replace(/https?:\/\/\S+/gi, '')                  // URLs nues (déjà dans link)
+      .replace(/\s{2,}/g, ' ')
+      .trim();
+  }
+
+}
+
+// ── Données ──────────────────────────────────────────────────────────────────
+let events = [];
+let notes  = [];
 const flyers = {};
-events.forEach(c => {
-  const img = new Image();
-  img.crossOrigin = 'anonymous';
-  img.src = c.flyer;
-  flyers[c.flyer] = img;
-});
-const notes = events.map((c, i) => ({
-  id: i,
-  time: 0,
-  pitch: Math.floor(Math.random() * 9),
-  // hover: 0,
-  type: ['noire', 'croche', 'blanche'][Math.floor(Math.random() * 3)],
-  // hitBox: null,
-  // flyerBox: null,
-  ...c
-}));
+const agenda = new TockifyAgenda(TOCKIFY_CALNAME);
 
-let mobileBoxes = [];  // positions des flyers en version mobile, mises à jour à chaque frame
+const flyersTried = new Set(); // URLs déjà tentées (succès ou échec)
+
+function loadFlyer(url) {
+  if (!url || flyersTried.has(url)) return;
+  flyersTried.add(url);
+  const img = new Image();
+  // Pas de crossOrigin : le CDN Tockify ne renvoie pas forcément les headers CORS.
+  // On n'a pas besoin de lire les pixels, donc ce n'est pas nécessaire.
+  img.onload  = () => {
+    console.log('[flyer] chargé :', url, img.naturalWidth + 'x' + img.naturalHeight);
+    scheduleRender();
+  };
+  img.onerror = () => console.warn('[flyer] échec :', url);
+  img.src = url;
+  flyers[url] = img;
+}
+
+function initNotes(data) {
+  events = data;
+  notes  = events.map((e, i) => ({
+    id:          i,
+    time:        0,
+    pitch:       Math.floor(Math.random() * 9),
+    type:        ['noire', 'croche', 'blanche'][Math.floor(Math.random() * 3)],
+    title:       e.title,
+    date:        e.date,
+    flyer:       e.flyer  || null,
+    link:        e.link   || '#',
+    description: e.description || '',
+    location:    e.location    || '',
+  }));
+  notes.forEach(n => loadFlyer(n.flyer));
+}
+
+async function fetchEvents() {
+  try {
+    const data = await agenda.loadEvents();
+    initNotes(data);
+    lastInfoId = -1;
+    scheduleRender();
+  } catch (err) {
+    console.error('Impossible de charger l’agenda Tockify :', err);
+  }
+}
+
+let flyerScroll = 0;
+let flyerScrollTarget = 0;
+let flyerBoxes = [];
+let mobileBoxes = [];
+let dragging = false;
+let dragStartY = 0;
+let dragStartScroll = 0;
+let suppressClick = false;
+
+// Rendu à la demande : passe en 60fps dès qu'une interaction démarre.
+// En idle, la boucle tourne à ~12fps pour le balancement des flyers.
+let rafPending = false;
+
+function scheduleRender() {
+  if (!rafPending) {
+    rafPending = true;
+    requestAnimationFrame(animate);
+  }
+}
 
 //////////////////////////////////////////////////////////////////////
 // Limite une valeur dans un intervalle.
@@ -221,33 +434,40 @@ function smoothstep(edge0, edge1, x) {
 function syncInfoPanel(note) {
   if (!note || note.id === lastInfoId) return;
   lastInfoId = note.id;
-  infoTitle.textContent = note.title;
-  infoDate.textContent = note.date.toLocaleDateString('fr-FR', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric'
-  });
-  infoDesc.textContent = note.description;
-  infoLink.href = note.link || '#';
+  infoTitle.textContent = note.title || '';
+  infoDate.textContent  = note.date
+    ? new Date(note.date).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+    : '';
+  infoDesc.textContent  = [note.location, note.description].filter(Boolean).join(' — ');
+  if (note.link && note.link !== '#') {
+    infoLink.href          = note.link;
+    infoLink.style.display = '';
+  } else {
+    infoLink.style.display = 'none';
+  }
 }
 
-function scrollToMobileFlyer(index) {
-  const scrollable = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
-  const target = clamp((index / events.length) * scrollable, 0, scrollable);
-  window.scrollTo({ top: target, behavior: 'smooth' });
+function setFlyerTarget(nextValue, immediate = false) {
+  flyerScrollTarget = clamp(nextValue, 0, events.length - 1);
+  if (immediate) {
+    flyerScroll = flyerScrollTarget;
+  }
 }
 
-function getMobileFlyerIndexAtPoint(x, y) {
+function activateFlyer(index) {
+  if (events.length === 0) return;
+  setFlyerTarget(index, false);
+}
+
+function flyerBoxHitTest(x, y) {
   let bestIndex = -1;
   let bestDist = Infinity;
-
-  for (let i = 0; i < mobileBoxes.length; i++) {
-    const box = mobileBoxes[i];
+  const boxes = mobileMode ? mobileBoxes : flyerBoxes;
+  for (let i = 0; i < boxes.length; i++) {
+    const box = boxes[i];
     if (!box) continue;
-
     const inside = x >= box.x && x <= box.x + box.w && y >= box.y && y <= box.y + box.h;
     if (inside) return i;
-
     const cx = box.x + box.w / 2;
     const cy = box.y + box.h / 2;
     const dist = Math.hypot(x - cx, y - cy);
@@ -256,8 +476,7 @@ function getMobileFlyerIndexAtPoint(x, y) {
       bestIndex = i;
     }
   }
-
-  return bestDist <= 90 ? bestIndex : -1;
+  return bestDist < 90 ? bestIndex : -1;
 }
 
 // les mouvements de la souris
@@ -269,23 +488,81 @@ canvas.addEventListener('pointermove', (e) => {
   mouse.x = e.clientX - rect.left;
   mouse.y = e.clientY - rect.top;
   mouse.active = true;
+  scheduleRender();
 });
 
 canvas.addEventListener('pointerleave', () => {
   mouse.active = false;
+  scheduleRender(); // une dernière frame pour effacer le zoom
 });
 
+canvas.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  const step = (e.deltaY || 0) / (mobileMode ? 900 : 700);
+  if (Math.abs(step) > 0.0001) {
+    setFlyerTarget(flyerScrollTarget + step);
+    scheduleRender();
+  }
+}, { passive: false });
+
 canvas.addEventListener('pointerdown', (e) => {
-  if (!mobileMode) return;
+  const rect = canvas.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
+
+  dragging = true;
+  suppressClick = false;
+  dragStartY = e.clientY;
+  dragStartScroll = flyerScrollTarget;
+
+  if (mobileMode) {
+    const hit = flyerBoxHitTest(x, y);
+    if (hit >= 0) {
+      setFlyerTarget(hit);
+      suppressClick = true;
+      scheduleRender();
+    }
+  }
+});
+
+canvas.addEventListener('pointermove', (e) => {
+  if (!dragging || !mobileMode) return;
+  const dy = dragStartY - e.clientY;
+  const amount = dy / Math.max(180, H * 0.45);
+  setFlyerTarget(dragStartScroll + amount);
+  scheduleRender();
+});
+
+canvas.addEventListener('pointerup', (e) => {
+  if (!dragging) return;
+  dragging = false;
 
   const rect = canvas.getBoundingClientRect();
   const x = e.clientX - rect.left;
   const y = e.clientY - rect.top;
-  const index = getMobileFlyerIndexAtPoint(x, y);
-  if (index < 0) return;
 
-  e.preventDefault();
-  scrollToMobileFlyer(index);
+  if (suppressClick) return;
+
+  const hit = flyerBoxHitTest(x, y);
+  if (hit >= 0) {
+    setFlyerTarget(hit);
+    scheduleRender();
+  }
+});
+
+canvas.addEventListener('click', (e) => {
+  if (suppressClick) {
+    suppressClick = false;
+    return;
+  }
+  const rect = canvas.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
+  const hit = flyerBoxHitTest(x, y);
+  if (hit >= 0) {
+    setFlyerTarget(hit);
+    scheduleRender();
+  }
 });
 
 // les montagnes
@@ -312,69 +589,97 @@ function drawStaff() {
     Xkey = W - (offset + gain * getLine(Ykey, 2*3)) + 35
   }
 
-  ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+  ctx.strokeStyle = T.staff;
   ctx.lineWidth = mobileMode ? 2 : 4;
+
+  //la portée
+  const Nt = (mobileMode ? 80 : 200)
+  for (let i = 0; i < 5; i++) {
+    ctx.beginPath();
+    for (let s = 0; s <= Nt; s++) {
+      const T = (mobileMode ? H : W) * s / Nt;
+      const p = offset + gain * getLine(T, 2*i);
+      const x = mobileMode ? (W-p) : T;
+      const y = mobileMode ? T : p;
+      if (s === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  }
 
   // la clé de sol
   ctx.save();
   ctx.translate(Xkey, Ykey);
   if (mobileMode) ctx.rotate(Math.PI / 2);
-  ctx.fillStyle = 'rgba(255,255,255,0.26)';
+  ctx.fillStyle    = T.clef;
   if (mobileMode) {
     ctx.font = `${Math.max(200, H * 0.2)}px "Times New Roman", serif`;
   } else {
     ctx.font = `${Math.max(500, H * 0.2)}px "Times New Roman", serif`; 
   }
-  ctx.textBaseline = 'top';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText('𝄞', 0, 0);
   ctx.restore();
-
-  // les lignes
-  // ctx.lineCap = 'round';
-  for (let i = 0; i < 5; i++) {
-    ctx.beginPath();
-    for (let t = 0; t < 1; t += 0.01) {
-      let T = mobileMode ? t*H : t*W
-      let p = offset + gain * getLine(T, 2*i);
-      let x = mobileMode ? (W-p) : T
-      let y = mobileMode ? T : p
-      if (T === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
-    }
-    ctx.stroke();
-  }
 }
 
 // le flyer
 function drawFlyer(flyer, x, y, w, h) {
-  const ir = flyer.width / flyer.height;
-  const fr = w / h;
+  const r = Math.min(w, h) * 0.06; // rayon des coins arrondis
 
-  let sx = 0, sy = 0, sw = flyer.width, sh = flyer.height;
-  if (ir > fr) {
-    sw = flyer.height * fr;
-    sx = (flyer.width - sw) / 2;
-  } else {
-    sh = flyer.width / fr;
-    sy = (flyer.width - sh) / 2;
-  }
+  ctx.save();
 
-  if (flyer.complete) {
-    ctx.drawImage(flyer, sx, sy, sw, sh, x, y, w, h);
-  } else {
-    ctx.fillStyle = '#222';
+  // Ombre douce pour détacher du fond sans bord franc
+  ctx.shadowColor   = 'rgba(0,0,0,0.55)';
+  ctx.shadowBlur    = 18;
+  ctx.shadowOffsetX = 3;
+  ctx.shadowOffsetY = 6;
+
+  // Clip en rectangle arrondi — casse les coins géométriques
+  ctx.beginPath();
+  ctx.roundRect(x, y, w, h, r);
+  ctx.clip();
+
+  // Couper l'ombre avant de dessiner l'image (sinon elle s'applique à l'image aussi)
+  ctx.shadowColor = 'transparent';
+
+  if (!flyer || !flyer.complete || !flyer.naturalWidth) {
+    ctx.fillStyle = T.flyerEmpty;
     ctx.fillRect(x, y, w, h);
+    ctx.restore();
+    return;
   }
+
+  const ir = flyer.naturalWidth / flyer.naturalHeight;
+  const fr = w / h;
+  let sx = 0, sy = 0, sw = flyer.naturalWidth, sh = flyer.naturalHeight;
+  if (ir > fr) {
+    sw = flyer.naturalHeight * fr;
+    sx = (flyer.naturalWidth - sw) / 2;
+  } else {
+    sh = flyer.naturalWidth / fr;
+    sy = (flyer.naturalWidth - sh) / 2;
+  }
+  ctx.drawImage(flyer, sx, sy, sw, sh, x, y, w, h);
+
+  ctx.restore();
+
+  // Liseré blanc par-dessus le clip (hors save pour ne pas être rogné)
+  ctx.save();
+  ctx.strokeStyle = 'rgba(255,255,255,0.18)';
+  ctx.lineWidth   = 1.5;
+  ctx.beginPath();
+  ctx.roundRect(x, y, w, h, r);
+  ctx.stroke();
+  ctx.restore();
 }
 
 function drawNote(i, box, zoom=1, no_sway=false) {
   const t = (mobileMode ? box.y : box.x)
-  const flyer = flyers[notes[i].flyer]
-  const head_size = (mobileMode ? 7 : 25 + zoom * 10)
-  const w = mobileMode ? head_size * 0.8 : head_size
-  const h = mobileMode ? head_size : head_size * 0.8
+  const flyer = notes[i].flyer ? (flyers[notes[i].flyer] || null) : null
+  const head_size = (mobileMode ? 9 : 25 + zoom * 10)
+  const w = mobileMode ? head_size * 0.75 : head_size
+  const h = mobileMode ? head_size        : head_size * 0.8
   const stemUp = mobileMode ? false : (notes[i].pitch >= 4);
   const dir = stemUp ? 1 : -1;
   const stemLength = 140 + zoom * 500;
@@ -382,7 +687,7 @@ function drawNote(i, box, zoom=1, no_sway=false) {
   const x_note = W - (offset + gain * getLine(t, notes[i].pitch))
   const lineTh = (mobileMode ? 2 : 3)
 
-  //la tête
+  // ── Tête de note ─────────────────────────────────────────────────────────
   ctx.beginPath();
   if (mobileMode) {
     ctx.ellipse(x_note, box.y, w, h, -0.3, 0, Math.PI * 2);
@@ -390,28 +695,33 @@ function drawNote(i, box, zoom=1, no_sway=false) {
     ctx.ellipse(box.x, box.y, w, h, -0.3, 0, Math.PI * 2);
   }
   if (notes[i].type === 'blanche') {
-    ctx.strokeStyle = 'white';
+    ctx.strokeStyle = T.note;
     ctx.lineWidth = lineTh;
     ctx.stroke();
   } else {
-    ctx.fillStyle = 'white';
+    ctx.fillStyle = T.note;
     ctx.fill();
   }
 
-  // la hampe
+  // ── Hampe ────────────────────────────────────────────────────────────────
   ctx.beginPath();
   if (mobileMode) {
     ctx.moveTo(x_note, stemT);
-    ctx.lineTo(box.x, stemT);
+    ctx.lineTo(box.x,  stemT);
   } else {
     ctx.moveTo(stemT, box.y);
     ctx.lineTo(stemT, box.y + (stemUp ? -stemLength : stemLength));
   }
-  ctx.strokeStyle = 'white';
+  ctx.strokeStyle = T.note;
   ctx.lineWidth = lineTh;
   ctx.lineCap = 'round';
   ctx.stroke();
+
+  // ── Couette (croche) ─────────────────────────────────────────────────────
   if (notes[i].type === 'croche') {
+    ctx.strokeStyle = T.note;
+    ctx.lineWidth = lineTh;
+    ctx.lineCap = 'round';
     if (mobileMode) {
       const x0 = box.x - 50;
       ctx.beginPath();
@@ -427,6 +737,7 @@ function drawNote(i, box, zoom=1, no_sway=false) {
         x0 + 46, stemT + 4,
         x0 + 34, stemT + 6
       );
+      ctx.stroke();
     } else {
       const y0 = box.y + (stemUp ? -stemLength : stemLength);
       ctx.beginPath();
@@ -438,22 +749,26 @@ function drawNote(i, box, zoom=1, no_sway=false) {
       );
       ctx.bezierCurveTo(
         stemT + 12, y0 + 52 * dir,
-        stemT + 4, y0 + 46 * dir,
-        stemT + 6, y0 + 34 * dir
+        stemT + 4,  y0 + 46 * dir,
+        stemT + 6,  y0 + 34 * dir
       );
+      ctx.stroke();
     }
-    ctx.stroke();
   }
 
   const w_current = (mobileMode ? box.w : flyer_W + zoom * 1000);
-  const h_current = (mobileMode ? box.h : w_current * 1.4);
+  const h_current = (mobileMode ? box.h : w_current * 1.41);
   const anchorY = box.y + (stemUp ? -stemLength : 30);
-  const sway = Math.sin(Date.now() * 0.0005 + 5*i) * 2;
+  const sway = Math.sin(performance.now() * 0.0005 + 5*i) * 2;
+
+  const flyerX = mobileMode ? box.x : stemT + 20;
+  const flyerY = mobileMode ? box.y : anchorY;
+  flyerBoxes[i] = { x: flyerX, y: flyerY, w: w_current, h: h_current };
 
   ctx.save();
   if (mobileMode) {
     ctx.translate(box.x, box.y);
-  } else { 
+  } else {
     ctx.translate(stemT + 20, anchorY);
   }
   if (!no_sway) {
@@ -483,18 +798,15 @@ function rowBox(slotIndex, slotCount, y, boxW, boxH, kind, t, drift = 0) {
 }
 
 function animate() {
-  let activeNote = notes[0]
-  ctx.clearRect(0,0,W,H)
-  const g = ctx.createLinearGradient(0, 0, 0, H);
-  g.addColorStop(0, '#151525');
-  g.addColorStop(1, '#0f0f14');
-  ctx.fillStyle = g;
+  let activeNote = notes[0];
+  ctx.fillStyle = bgGradient;
   ctx.fillRect(0, 0, W, H);
   drawStaff()
   if (mobileMode) {
-    mobileBoxes = [];
-    const scrollable = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
-    let scrollProgress = clamp((window.scrollY / scrollable) * events.length, 0, events.length - 0.001);
+    flyerScroll += (flyerScrollTarget - flyerScroll) * 0.14;
+    flyerScroll = clamp(flyerScroll, 0, events.length - 0.001);
+
+    let scrollProgress = clamp(flyerScroll, 0, events.length - 0.001);
     let active = Math.floor(scrollProgress) % events.length;
     scrollProgress = scrollProgress - active
 
@@ -504,11 +816,11 @@ function animate() {
     const bottomPhase = smoothstep(0.00, 1.00, scrollProgress);
 
     const thumbW = clamp(W * 0.16, 54, 72);
-    const thumbH = Math.round(thumbW * 1.1);
+    const thumbH = Math.round(thumbW * 1.41);
     const centerW = clamp(W * 0.64, 190, 330);
     const centerH = Math.round(centerW * 1.3);
 
-    const topY = Math.max(10, H * 0.2);
+    const topY = Math.max(10, H * 0.12);
     const centerY = topY + thumbH + 10
     const bottomY = centerY + centerH
 
@@ -563,7 +875,7 @@ function animate() {
       }
       mobileBoxes[i] = box;
       drawNote(i, box, 0, no_sway);
-      activeNote = notes[(scrollProgress>0.5 ? active + 1 : active)]
+      activeNote = notes[Math.min(events.length - 1, (scrollProgress > 0.5 ? active + 1 : active))]
     }
   } else {
     let bestZoom = 0
@@ -577,7 +889,12 @@ function animate() {
       let x = mobileMode ? W * 0.5 : note.time;
       x = targetX * 0.08 + x * 0.92
       let y = offset + gain * getLine(x, note.pitch)
-      dist = Math.hypot(mouse.x - x, mouse.y - y)
+
+      // Distance au centre du flyer (frame précédente) plutôt qu'à la tête de note
+      const fb      = flyerBoxes[i];
+      const targetX2 = fb ? fb.x + fb.w / 2 : x;
+      const targetY2 = fb ? fb.y + fb.h / 2 : y;
+      dist = Math.hypot(mouse.x - targetX2, mouse.y - targetY2)
 
       let zoom = mouse.active ? 0.08 * clamp(1 - dist/160,0,1) : 0
       if (zoom > bestZoom) {
@@ -589,65 +906,55 @@ function animate() {
     });
   };
   syncInfoPanel(activeNote);
-  requestAnimationFrame(animate);
+
+  rafPending = false;
+  const scrolling = Math.abs(flyerScroll - flyerScrollTarget) > 0.0001;
+
+  if (scrolling || mouse.active) {
+    // Interaction en cours → 60fps
+    rafPending = true;
+    requestAnimationFrame(animate);
+  } else {
+    // Idle : seulement le balancement (~12fps suffisent, période ~12s)
+    rafPending = true;
+    setTimeout(() => requestAnimationFrame(animate), 80);
+  }
 }
 
-//////////////////////////////////////////////////////////////////////
-/////////////////////    Debut du script    //////////////////////////
-//////////////////////////////////////////////////////////////////////
+// ── Globals ──────────────────────────────────────────────────────────────────
 let mobileMode = window.innerWidth < 768;
-let dpr = window.devicePixelRatio || 1;
 let lastInfoId = -1;
-const iframe_scale = 0.88;
+let W, H, flyer_W, offset, gain;
+let dpr = window.devicePixelRatio || 1;
+let bgGradient = null;
 
-let W = window.innerWidth;
-let H = window.innerHeight;
-// if (mobileMode) {
-//   H *= iframe_scale
-// } else {
-//   W *= iframe_scale
-// }
-
-let flyer_W = W / 10;
-let offset = mobileMode ? W * 0.1 : H * 0.2;
-let gain = mobileMode ? 0.2 : 1;
-
-function resizeCanvas() {
+function onResize() {
   mobileMode = window.innerWidth < 768;
-  dpr = window.devicePixelRatio || 1;
+  dpr        = window.devicePixelRatio || 1;
   W = window.innerWidth;
   H = window.innerHeight;
-
   flyer_W = W / 10;
-  offset = mobileMode ? W * 0.1 : H * 0.2;
-  gain = mobileMode ? 0.2 : 1;
+  offset  = mobileMode ? W * 0.1 : H * 0.2;
+  gain    = mobileMode ? 0.2 : 1;
 
-  canvas.width = Math.round(W * dpr);
-  canvas.height = Math.round(H * dpr);
-  canvas.style.width = W + 'px';
+  canvas.width        = Math.round(W * dpr);
+  canvas.height       = Math.round(H * dpr);
+  canvas.style.width  = W + 'px';
   canvas.style.height = H + 'px';
-
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+  // Gradient mis en cache, recréé seulement au resize
+  bgGradient = ctx.createLinearGradient(0, 0, 0, H);
+  bgGradient.addColorStop(0, T.bgTop);
+  bgGradient.addColorStop(1, T.bgBot);
 }
 
-resizeCanvas();
-window.addEventListener('resize', resizeCanvas, { passive: true });
-window.visualViewport?.addEventListener('resize', resizeCanvas, { passive: true });
+window.addEventListener('resize', () => { onResize(); scheduleRender(); });
+applyTheme(darkMQ.matches);
+onResize();
 
-// notes.forEach((n, i) => {
-//   n.time = (i + 1) * (W / (events.length + 1));
-//   n.renderX = mobileMode ? W * 0.5 : n.baseX;
-//   n.renderY = H * 0.5;
-
-// const g = ctx.createLinearGradient(0, 0, 0, H);
-// g.addColorStop(0, '#151525');
-// g.addColorStop(1, '#0f0f14');
-// ctx.fillStyle = g;
-// ctx.fillRect(0, 0, W, H);
-
-// updateScrollProgress();
-syncInfoPanel(notes[0]);
-animate()
+animate();
+fetchEvents();
 </script>
 </body>
 </html>
